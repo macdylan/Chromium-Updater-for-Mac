@@ -1,0 +1,100 @@
+#!/bin/sh
+ROOT_URL="http://build.chromium.org/buildbot/snapshots/chromium-rel-mac"
+LATEST_URL="$ROOT_URL/LATEST"
+INSTALL_DIR="/Applications"
+DOWNLOADER="axel -an 10"
+DOWNLOAD_TARGET="/Volumes/CACHE DISK"
+DOWNLOAD_FILE="chrome-mac.zip"
+
+LOCAL_VERSION=`cat $INSTALL_DIR/Chromium.app/Contents/Info.plist | grep ">[0-9]\{4,\}<" | sed -e "s/[^0-9]//g"`
+REMOTE_VERSION=`curl -s $LATEST_URL`
+echo "    Local: $LOCAL_VERSION"
+echo "   Remote: $REMOTE_VERSION"
+echo "\nUpdate that build? (y/n) default yes: \c"
+read confirm
+if [ "$confirm" == "n" ]; then
+    exit 0
+fi
+
+if [ ! -d "$DOWNLOAD_TARGET" ]; then
+    DOWNLOAD_TARGET=$TMPDIR
+fi
+
+if [ ! -d "$DOWNLOAD_TARGET" ]; then
+    echo "Can not download file because no permission in the local directory [$DOWNLOAD_TARGET]"
+    exit 1
+fi
+
+LOG_LINE_SEPTATER_BEGIN=">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+LOG_LINE_SEPTATER_END="<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+echo "Do you want to read the changelog( $LOCAL_VERSION .. $REMOTE_VERSION )? (y/n) default no: \c"
+read confirm
+if [ "$confirm" == "y" ]; then
+    if [ -z $LOCAL_VERSION ]; then LOCAL_VERSION=$(($REMOTE_VERSION-1)); fi
+    i=$(($LOCAL_VERSION+1))
+    log=""
+    while [ $i -le $REMOTE_VERSION ]; do
+        echo "Fetching $i ... \c"
+        _log=`curl -fs $ROOT_URL/$i/changelog.xml`
+        if [ -n "$_log" ]; then
+            echo "OK"
+            log="$log\n $LOG_LINE_SEPTATER_BEGIN [$i]\n\n$_log\n $LOG_LINE_SEPTATER_END [$i]\n"
+        else
+            echo "404"
+        fi
+        let i+=1
+    done
+    if [ -n "$log" ]; then
+        echo "$log" | less
+        echo "Continue? (y/n) default yes: \c"
+        read confirm
+        if [ "$confirm" == "n" ]; then exit 0; fi
+    else
+        echo "SHIT"
+    fi
+fi
+
+if [ -f "$DOWNLOAD_TARGET/$DOWNLOAD_FILE" ]; then
+    rm "$DOWNLOAD_TARGET/$DOWNLOAD_FILE"
+fi
+$DOWNLOADER -o "$DOWNLOAD_TARGET/$DOWNLOAD_FILE" "$ROOT_URL/$REMOTE_VERSION/$DOWNLOAD_FILE"
+rm_chromium()
+{
+    rm -r $INSTALL_DIR/Chromium.app
+    if [ "$?" -ne 0 ] ; then
+        echo "Can not remove $INSTALL_DIR/Chromium.app, do you want try again now? (y/n/skip) default yes: \c"
+        read confirm
+        case "$confirm" in
+            "n")
+                exit 0
+                ;;
+            "s" | "skip")
+                SKIP_REMOVE=1
+            ;;
+            *)
+                rm_chromium
+            ;;
+        esac
+    fi
+}
+rm_chromium
+
+if [ -z $SKIP_REMOVE ] || [ "$SKIP_REMOVE" == "1" ]; then
+    if [ -f "$DOWNLOAD_TARGET/$DOWNLOAD_FILE" ]; then
+        unzip -q -d "$INSTALL_DIR" "$DOWNLOAD_TARGET/$DOWNLOAD_FILE"
+        cd "$INSTALL_DIR"
+        mv chrome-mac/Chromium.app ./
+        rm -r chrome-mac
+        rm "$DOWNLOAD_TARGET/$DOWNLOAD_FILE"
+        # cd Chromium.app/Contents/MacOS/; mv Chromium RealChromium; ln -s ~/.bin/chromium_start Chromium
+        process_exist=`ps ax | grep Chromium | grep -v grep | wc -l | sed 's/\ //g'`
+        if [ $process_exist -gt 0 ]; then
+            echo "Do you want to kill Chromium process? (y/n) default no: \c"
+            read confirm
+            if [ "$confirm" == "y" ]; then killall Chromium; fi
+        fi
+        open "$INSTALL_DIR"
+        echo "\nAll has been done.\n"
+    fi
+fi
+

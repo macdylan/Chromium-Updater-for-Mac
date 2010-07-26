@@ -1,0 +1,6 @@
+1. 比较本地和远程的版本号
+2. 可以查看自上次更新以来的所有版本的 changelog (use /usr/bin/less)
+3. 多线程下载(use axel)
+4. 检查并提示杀掉 Chromium 进程来完成更新
+
+Read more: http://timoline.com/118/2010/07/chromium-updater-for-mac

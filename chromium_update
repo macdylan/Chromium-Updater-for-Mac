@@ -1,9 +1,11 @@
 #!/bin/sh
-ROOT_URL="http://build.chromium.org/buildbot/snapshots/chromium-rel-mac"
-LATEST_URL="$ROOT_URL/LATEST"
 INSTALL_DIR="/Applications"
 DOWNLOADER="axel -an 10"
 DOWNLOAD_TARGET="/Volumes/CACHE DISK"
+
+########## DO NOT EDIT BELOW THIE LINE ############
+ROOT_URL="http://build.chromium.org/buildbot/snapshots/chromium-rel-mac"
+LATEST_URL="$ROOT_URL/LATEST"
 DOWNLOAD_FILE="chrome-mac.zip"
 
 LOCAL_VERSION=`cat $INSTALL_DIR/Chromium.app/Contents/Info.plist | grep ">[0-9]\{4,\}<" | sed -e "s/[^0-9]//g"`
@@ -54,6 +56,9 @@ if [ "$confirm" == "y" ]; then
     fi
 fi
 
+if [ ! -d "$DOWNLOAD_TARGET" ]; then
+    DOWNLOAD_TARGET=/tmp
+fi
 if [ -f "$DOWNLOAD_TARGET/$DOWNLOAD_FILE" ]; then
     rm "$DOWNLOAD_TARGET/$DOWNLOAD_FILE"
 fi
